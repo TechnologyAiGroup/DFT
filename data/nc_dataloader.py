@@ -16,10 +16,6 @@ import sys
 
 
 class CitationDomainData(InMemoryDataset):
-    """
-    图数据的dataloader
-    引文数据集加载器：acmv9,citationv1,dblpv7  these datasets are originally from CDNE
-    """
 
     def __init__(self, root, name, use_pca=False, pca_dim=1000, transform=None, pre_transform=None, pre_filter=None):
         self.name = name
@@ -60,10 +56,10 @@ class CitationDomainData(InMemoryDataset):
             features = torch.from_numpy(features.todense()).to(torch.float)
         if not isinstance(adj, sp.coo_matrix):
             adj = sp.coo_matrix(adj)
-        # edge_index应该是COO格式的long型tensor
+
         indices = np.vstack([adj.row, adj.col])
         edge_index = torch.tensor(indices, dtype=torch.long)
-        # 计算ppmi矩阵（虽然以稀疏矩阵格式，但大量元素都有值，因为是概率矩阵）
+
         A_k = AggTranProbMat(adj, 3)
         PPMI_ = ComputePPMI(A_k)
         n_PPMI_ = MyScaleSimMat(PPMI_)  # row normalized PPMI
@@ -85,7 +81,7 @@ class CitationDomainData(InMemoryDataset):
         test_node_indices = random_node_indices[train_size+val_size:]
         train_mask = torch.zeros([y.shape[0]], dtype=torch.uint8)
         train_mask[train_node_indices] = 1
-        train_mask = train_mask.bool()  # mask 应该是bool类型
+        train_mask = train_mask.bool() 
         val_mask = torch.zeros([y.shape[0]], dtype=torch.uint8)
         val_mask[val_node_indices] = 1
         val_mask = val_mask.bool()
@@ -103,11 +99,6 @@ class CitationDomainData(InMemoryDataset):
 
 
 class BlogDomainData(InMemoryDataset):
-    """
-    图数据的dataloader
-    博客数据集加载器：blog1 blog2  these datasets are originally from CDNE
-    """
-
     def __init__(self, root, name, use_pca=False, pca_dim=1000, transform=None, pre_transform=None, pre_filter=None):
         self.name = name
         self.use_pca = use_pca
@@ -151,7 +142,6 @@ class BlogDomainData(InMemoryDataset):
         # edge_index应该是COO格式的long型tensor
         indices = np.vstack([adj.row, adj.col])
         edge_index = torch.tensor(indices, dtype=torch.long)
-        # 计算ppmi矩阵（虽然以稀疏矩阵格式，但大量元素都有值，因为是概率矩阵）
         A_k = AggTranProbMat(adj, 3)
         PPMI_ = ComputePPMI(A_k)
         n_PPMI_ = MyScaleSimMat(PPMI_)  # row normalized PPMI
@@ -173,7 +163,7 @@ class BlogDomainData(InMemoryDataset):
         test_node_indices = random_node_indices[train_size+val_size:]
         train_mask = torch.zeros([y.shape[0]], dtype=torch.uint8)
         train_mask[train_node_indices] = 1
-        train_mask = train_mask.bool()  # mask 应该是bool类型
+        train_mask = train_mask.bool() 
         val_mask = torch.zeros([y.shape[0]], dtype=torch.uint8)
         val_mask[val_node_indices] = 1
         val_mask = val_mask.bool()
@@ -217,14 +207,10 @@ class TwitchDomainData(InMemoryDataset):
         edges = [[int(edge[0]), int(edge[1])] for edge in edges]
         graph = nx.from_edgelist(edges)
         graph.remove_edges_from(nx.selfloop_edges(graph))
-        # 根据节点在g.nodes中出现的先后次序把节点重新编号
         node_id_map = {}
         nodes = list(graph.nodes)
         for i in range(len(nodes)):
             node_id_map[nodes[i]] = i
-        # to_scipy_sparse_matrix会把节点的id根据其出现的先后顺序，即g.nodes列表，替换掉
-        # 如果原节点i在g.nodes排序在第j个，则其出现在邻接矩阵中的id是j
-        # 注意导出时会导出undirected graph，就是一条边会被算2次，所以边数double
         adj = nx.to_scipy_sparse_array(graph, format="coo")
         return adj, graph.number_of_nodes(), graph.number_of_edges(), node_id_map
 
@@ -261,10 +247,10 @@ class TwitchDomainData(InMemoryDataset):
     def process(self):
         adj, n_nodes, n_edges, node_id_map = self._load_graph(
             self.root+"/"+f"raw/{self.name}_edges.csv")
-        # edge_index应该是COO格式的long型tensor
+
         indices = np.vstack([adj.row, adj.col])
         edge_index = torch.tensor(indices, dtype=torch.long)
-        # 计算ppmi矩阵（虽然以稀疏矩阵格式，但大量元素都有值，因为是概率矩阵）
+
         print('computing PPMI')
         A_k = AggTranProbMat(adj, 3)
         PPMI_ = ComputePPMI(A_k)
@@ -324,10 +310,8 @@ class AirPortDomainData(InMemoryDataset):
         sparse_adj = []
         for i in range(1, kmax + 1):
             core = nx.k_core(g, k=i)
-            # NOTE : nx to scipy sparse matrix要求node ordering，比较麻烦，不如直接拿节点映射后的ID
             row = np.array([x[0] for x in core.edges])
             col = np.array([x[1] for x in core.edges])
-            # NOTE 为什么必须要输入双向边才有好的效果, 而且与sparse matrix结果不一致
             indices = np.hstack([np.vstack([row, col]), np.vstack([col, row])])
             self_loops = np.vstack(
                 [np.array(core.nodes), np.array(core.nodes)])
@@ -338,14 +322,12 @@ class AirPortDomainData(InMemoryDataset):
             sp_adj = sp.coo_matrix(
                 (np.ones_like(row), (row, col)), shape=(n_node, n_node))
             sparse_adj.append(sp_adj)
-        # note 只取kcore=1即原图
         edge_index = views[0]
         sp_adj = sparse_adj[0]
         return g, edge_index, r_mapping, sp_adj
 
     def generate_feture(self, graph, max_degree):
         features = torch.zeros([graph.number_of_nodes(), max_degree])
-        # nodeID是0开始的数组编号，因此可以这么写
         for i in range(graph.number_of_nodes()):
             try:
                 features[i][min(graph.degree[i], max_degree - 1)] = 1
