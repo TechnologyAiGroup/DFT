@@ -1,4 +1,4 @@
-## DFT(KDD2026)
+## DFT (KDD'26)
 
 Pytorch implementation of "Enhancing Node-Level Graph Domain Adaptation by Alleviating
 Local Dependency"
